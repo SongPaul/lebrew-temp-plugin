@@ -4,6 +4,18 @@ function createPlugin(host) {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   const silenceMs = 10000;
   const maxBuffered = 64;
+  const maxOffset = 20;
+  let offset = 0;
+
+  function offsetFrom(settings) {
+    const value = Number(settings && settings.offset);
+    if (!Number.isFinite(value)) return 0;
+    return Math.max(-maxOffset, Math.min(maxOffset, value));
+  }
+
+  function snapshotFor(surface) {
+    return {temperature: Math.round((surface + offset) * 10) / 10, surfaceTemperature: surface};
+  }
 
   function bytesOf(data) {
     if (typeof data !== "string" || data.length % 4 !== 0) return [];
@@ -55,7 +67,8 @@ function createPlugin(host) {
 
   return {
     id: "lebrew-temp.reaplugin",
-    onLoad() {
+    onLoad(settings) {
+      offset = offsetFrom(settings);
       return host.devices.bindDriver("lebrew", {
         create() {
           let active;
@@ -66,7 +79,10 @@ function createPlugin(host) {
           }
           return {
             vendor: "LEBREW",
-            dataChannels: [{key: "temperature", type: "number", unit: "°C"}],
+            dataChannels: [
+              {key: "temperature", type: "number", unit: "°C"},
+              {key: "surfaceTemperature", type: "number", unit: "°C"}
+            ],
             commands: [],
             async connect(session) {
               const state = {session, stopped: false, timer: null, buffer: []};
@@ -110,7 +126,7 @@ function createPlugin(host) {
                   const readings = takeFrames(state.buffer);
                   if (readings.length === 0) return;
                   watchSilence();
-                  await session.publish({temperature: readings[readings.length - 1]});
+                  await session.publish(snapshotFor(readings[readings.length - 1]));
                   if (!state.stopped) succeed();
                 });
                 if (!state.stopped && state.timer === null) watchSilence();

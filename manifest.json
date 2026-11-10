@@ -3,7 +3,7 @@
   "name": "LEBREW TEMP Thermometer",
   "author": "SongPaul",
   "description": "Reads the LEBREW TEMP (Brewmaster) BLE thermometer as a temperature sensor, so steaming can record milk temperature and stop at a target.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "apiVersion": 1,
   "permissions": ["transport.ble"],
   "drivers": [{
@@ -11,6 +11,13 @@
     "type": "sensor",
     "ble": {"match": {"name": {"exact": "LEBREW TEMP"}}}
   }],
-  "settings": {},
+  "settings": {
+    "offset": {
+      "type": "number",
+      "label": "Surface-to-core offset (°C)",
+      "description": "Added to every reading. The thermometer reads the surface of the milk with an infrared sensor, which runs cooler than the milk inside. Positive values raise the reading. Range -20 to 20.",
+      "default": 0
+    }
+  },
   "api": []
 }

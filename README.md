@@ -1,7 +1,20 @@
 # LEBREW TEMP Thermometer for Decaid
 
 A Decaid plugin that reads the LEBREW TEMP ("Brewmaster") BLE thermometer as a
-sensor. It publishes one channel, `temperature` in °C.
+sensor. It publishes two channels in °C:
+
+- `temperature`: the reading plus the configured offset. Steaming uses this one.
+- `surfaceTemperature`: what the thermometer measured.
+
+## Settings
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `offset` | 0 | Surface-to-core offset in °C, added to every reading, from -20 to 20. The thermometer reads the milk surface with an infrared sensor, which runs cooler than the milk inside, so a positive value is usual. |
+
+Saving the setting reloads the plugin, and the next reading uses the new
+offset. Find the value by reading the milk with a probe thermometer and the
+LEBREW at the same moment, then setting the difference.
 
 Decaid's steam sequencer uses any connected sensor with a numeric
 `temperature` channel. With this plugin, steaming records milk temperature,
@@ -58,7 +71,11 @@ path.
 # 한국어
 
 LEBREW TEMP(Brewmaster) 블루투스 온도계를 Decaid 센서로 읽는 플러그인입니다.
-`temperature`(°C) 채널 하나를 보냅니다.
+`temperature`(보정값을 더한 온도)와 `surfaceTemperature`(측정한 표면 온도)를 보냅니다.
+
+- 설정 `offset`(표면→심부 보정, °C, 기본 0, −20~20)을 모든 측정값에 더합니다.
+  적외선으로 표면을 재므로 실제 우유 속보다 낮게 나오는 만큼을 양수로 넣습니다.
+  탐침 온도계와 동시에 재서 차이를 넣으면 됩니다.
 
 - 스팀할 때 우유 온도가 기록되고, 워크플로의 `stopAtTemperature`에 닿으면
   스팀이 멈춥니다.

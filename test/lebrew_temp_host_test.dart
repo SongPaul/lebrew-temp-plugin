@@ -56,16 +56,18 @@ void main() {
   late PluginManager manager;
   final transports = <LebrewTransport>[];
 
-  setUp(() async {
+  Future<void> load(Map<String, dynamic> settings) async {
     transports.clear();
     manager = PluginManager(kvStore: FakeKeyValueStoreService());
     await manager.loadPlugin(
       id: manifest().id,
       manifest: manifest(),
-      settings: {},
+      settings: settings,
       jsCode: File('$dir/plugin.js').readAsStringSync(),
     );
-  });
+  }
+
+  setUp(() => load({}));
   tearDown(() => manager.dispose());
 
   Future<Sensor> candidate({String name = 'LEBREW TEMP', bool hasService = true}) async {
@@ -96,8 +98,8 @@ void main() {
     final sensor = await candidate();
     expect(sensor.deviceId, 'plugin:lebrew-temp.reaplugin:lebrew:8c:bf:ea:5a:6b:f6');
     expect(sensor.info.vendor, 'LEBREW');
-    expect(sensor.info.dataChannels.single.key, 'temperature');
-    expect(sensor.info.dataChannels.single.type, 'number');
+    expect(sensor.info.dataChannels.map((c) => c.key), ['temperature', 'surfaceTemperature']);
+    expect(sensor.info.dataChannels.every((c) => c.type == 'number'), isTrue);
     final got = <double>[];
     final sub = sensor.data.listen((d) => got.add((d['temperature'] as num).toDouble()));
     final connect = sensor.onConnect();
@@ -123,5 +125,44 @@ void main() {
     final sensor = await candidate(hasService: false);
     await expectLater(sensor.onConnect(), throwsA(anything));
     await sensor.disconnect();
+  });
+
+  Future<List<Map<String, dynamic>>> readings(List<double> celsius) async {
+    final sensor = await candidate();
+    final got = <Map<String, dynamic>>[];
+    final sub = sensor.data.listen(got.add);
+    final connect = sensor.onConnect();
+    await transports.single.subscribed.future;
+    for (final c in celsius) {
+      transports.single.emit(frame(c));
+    }
+    await connect;
+    await pumpEventQueue();
+    await sub.cancel();
+    await sensor.disconnect();
+    return got;
+  }
+
+  test('without an offset the reading is the surface reading', () async {
+    expect(await readings([19.9]), [
+      {'temperature': 19.9, 'surfaceTemperature': 19.9},
+    ]);
+  });
+
+  test('the offset raises the reading and keeps the surface reading', () async {
+    await manager.dispose();
+    await load({'offset': 3.5});
+    expect(await readings([58.3, 61.0]), [
+      {'temperature': 61.8, 'surfaceTemperature': 58.3},
+      {'temperature': 64.5, 'surfaceTemperature': 61.0},
+    ]);
+  });
+
+  test('an offset typed as text, out of range or unusable is handled', () async {
+    for (final (setting, want) in [('2.5', 22.4), (50, 39.9), (-50, -0.1), ('abc', 19.9)]) {
+      await manager.dispose();
+      await load({'offset': setting});
+      expect((await readings([19.9])).single['temperature'], want, reason: '$setting');
+    }
   });
 }
