@@ -1,0 +1,16 @@
+{
+  "id": "lebrew-temp.reaplugin",
+  "name": "LEBREW TEMP Thermometer",
+  "author": "SongPaul",
+  "description": "Reads the LEBREW TEMP (Brewmaster) BLE thermometer as a temperature sensor, so steaming can record milk temperature and stop at a target.",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "permissions": ["transport.ble"],
+  "drivers": [{
+    "id": "lebrew",
+    "type": "sensor",
+    "ble": {"match": {"name": {"exact": "LEBREW TEMP"}}}
+  }],
+  "settings": {},
+  "api": []
+}
