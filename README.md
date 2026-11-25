@@ -32,8 +32,11 @@ temperature. Skins read the value from `GET /api/v1/sensors` and
   Notifications are buffered, so frames split across or packed into
   notifications are both read.
 - Readings below −50 °C, above 150 °C, NaN and infinity are dropped.
-- The connection is ready on the first valid reading. Ten seconds without one
-  reports the device as disconnected.
+- The connection is ready as soon as the temperature notifications are
+  subscribed; it does not wait for a first reading. A quiet thermometer stays
+  connected, and only a lost Bluetooth link disconnects it. Before 0.3.0 the
+  connection waited up to ten seconds for a first reading and failed without
+  one, which made connecting unreliable.
 - Only the last reading in a notification is published. The device sends
   about three per second.
 
@@ -81,4 +84,7 @@ LEBREW TEMP(Brewmaster) 블루투스 온도계를 Decaid 센서로 읽는 플러
   스팀이 멈춥니다.
 - 기기는 한 번에 한 앱에만 연결됩니다. 공식 앱이 연결돼 있으면 Decaid가 찾지
   못합니다.
+- 0.3.0부터는 측정값 구독이 되면 바로 연결된 것으로 봅니다. 첫 온도 값을
+  10초 안에 받지 못하면 연결에 실패하던 동작을 없앴고, 값이 잠시 오지 않아도
+  연결을 끊지 않습니다. 블루투스 연결이 실제로 끊길 때만 끊긴 것으로 봅니다.
 - 원두 표시와 온도 보정은 아직 없습니다. 실기기 검증도 아직입니다.

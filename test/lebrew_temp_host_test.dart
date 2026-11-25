@@ -121,6 +121,34 @@ void main() {
     await sensor.disconnect();
   });
 
+  test('connects once subscribed, before any reading arrives', () async {
+    final sensor = await candidate();
+    final got = <Map<String, dynamic>>[];
+    final sub = sensor.data.listen(got.add);
+    await sensor.onConnect().timeout(const Duration(seconds: 5));
+    expect(await sensor.connectionState.first, ConnectionState.connected);
+    expect(got, isEmpty);
+    transports.single.emit(frame(42.0));
+    await pumpEventQueue();
+    expect(got.single['temperature'], 42.0);
+    await sub.cancel();
+    await sensor.disconnect();
+  });
+
+  test('stays connected through a quiet spell longer than ten seconds', () async {
+    final sensor = await candidate();
+    await sensor.onConnect().timeout(const Duration(seconds: 5));
+    await Future<void>.delayed(const Duration(seconds: 11));
+    expect(await sensor.connectionState.first, ConnectionState.connected);
+    final got = <Map<String, dynamic>>[];
+    final sub = sensor.data.listen(got.add);
+    transports.single.emit(frame(55.5));
+    await pumpEventQueue();
+    expect(got.single['temperature'], 55.5);
+    await sub.cancel();
+    await sensor.disconnect();
+  }, timeout: const Timeout(Duration(seconds: 30)));
+
   test('fails to connect without the temperature service', () async {
     final sensor = await candidate(hasService: false);
     await expectLater(sensor.onConnect(), throwsA(anything));

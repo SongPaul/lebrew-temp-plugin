@@ -2,7 +2,6 @@ function createPlugin(host) {
   const service = "0000180d-0000-1000-8000-00805f9b34fb";
   const temperatureCharacteristic = "00002a37-0000-1000-8000-00805f9b34fb";
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  const silenceMs = 10000;
   const maxBuffered = 64;
   const maxOffset = 20;
   let offset = 0;
@@ -73,9 +72,7 @@ function createPlugin(host) {
         create() {
           let active;
           function stop(state) {
-            if (!state || state.stopped) return;
-            state.stopped = true;
-            clearTimeout(state.timer);
+            if (state) state.stopped = true;
           }
           return {
             vendor: "LEBREW",
@@ -85,55 +82,22 @@ function createPlugin(host) {
             ],
             commands: [],
             async connect(session) {
-              const state = {session, stopped: false, timer: null, buffer: []};
+              const state = {session, stopped: false, buffer: []};
               active = state;
-              let ready;
-              let failed;
-              let settled = false;
-              const firstReading = new Promise((resolve, reject) => {ready = resolve; failed = reject;});
-              firstReading.catch(() => {});
-              function succeed() {
-                if (!settled) {
-                  settled = true;
-                  ready();
-                }
-              }
-              function fail(error) {
-                if (!settled) {
-                  settled = true;
-                  failed(error);
-                }
-              }
-              function watchSilence() {
-                clearTimeout(state.timer);
-                state.timer = setTimeout(() => {
-                  stop(state);
-                  fail(new Error("LEBREW TEMP stopped sending temperature"));
-                  session.reportDisconnected().catch(() => {});
-                }, silenceMs);
-              }
               try {
                 const services = await session.gatt.discoverServices();
                 if (!services.includes(service)) throw new Error("LEBREW TEMP service unavailable");
-                session.gatt.onDisconnect(() => {
-                  stop(state);
-                  fail(new Error("LEBREW TEMP disconnected before the first reading"));
-                });
+                session.gatt.onDisconnect(() => stop(state));
                 await session.gatt.subscribe(service, temperatureCharacteristic, async data => {
                   if (state.stopped) return;
                   const bytes = bytesOf(data);
                   for (let i = 0; i < bytes.length; i++) state.buffer.push(bytes[i]);
                   const readings = takeFrames(state.buffer);
                   if (readings.length === 0) return;
-                  watchSilence();
                   await session.publish(snapshotFor(readings[readings.length - 1]));
-                  if (!state.stopped) succeed();
                 });
-                if (!state.stopped && state.timer === null) watchSilence();
-                await firstReading;
               } catch (error) {
                 stop(state);
-                fail(error);
                 throw error;
               }
             },
